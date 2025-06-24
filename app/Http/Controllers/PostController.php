@@ -16,4 +16,9 @@ class PostController extends Controller
 
         return response()->json($posts);
     }
+
+    public function create()
+    {
+        return response()->json('posts.create');
+    }
 }
