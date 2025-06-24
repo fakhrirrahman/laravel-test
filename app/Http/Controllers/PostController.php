@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Post\PostStoreRequest;
+use App\Http\Requests\Post\PostUpdateRequest;
 use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,9 +41,43 @@ class PostController extends Controller
     public function show(Post $post)
     {
         if ($post->is_draft || $post->published_at > now()) {
-            abort(404);
+            if (Auth::id() !== $post->user_id) {
+                abort(404);
+            }
         }
 
         return response()->json($post->load('user'));
+    }
+
+    public function edit()
+    {
+        return response()->json('posts.edit');
+    }
+
+    public function update(PostUpdateRequest $request, Post $post)
+    {
+        if ($post->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $post->update([
+            'title' => $request->title,
+            'content' => $request->content,
+            'is_draft' => $request->is_draft,
+            'published_at' => $request->published_at,
+        ]);
+
+        return response()->json($post->load('user'));
+    }
+
+    public function destroy(Post $post)
+    {
+        if ($post->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $post->delete();
+
+        return response()->json(['message' => 'Post deleted successfully.']);
     }
 }
