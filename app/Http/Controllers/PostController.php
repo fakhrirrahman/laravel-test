@@ -30,10 +30,19 @@ class PostController extends Controller
             'user_id' => Auth::id(),
             'title' => $request->title,
             'content' => $request->content,
-            'is_draft' => $request->is_draft ?? true,
+            'is_draft' => $request->boolean('is_draft', true),
             'published_at' => $request->published_at,
         ]);
 
-        return response()->json($post, 201);
+        return response()->json($post->load('user'), 201);
+    }
+
+    public function show(Post $post)
+    {
+        if ($post->is_draft || $post->published_at > now()) {
+            abort(404);
+        }
+
+        return response()->json($post->load('user'));
     }
 }
