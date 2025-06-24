@@ -18,6 +18,11 @@ class Post extends Model
         'published_at',
     ];
 
+    protected $casts = [
+        'is_draft' => 'boolean',
+        'published_at' => 'datetime',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

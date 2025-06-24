@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Post\PostStoreRequest;
 use App\Models\Post;
+use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
@@ -20,5 +22,18 @@ class PostController extends Controller
     public function create()
     {
         return response()->json('posts.create');
+    }
+
+    public function store(PostStoreRequest $request)
+    {
+        $post = Post::create([
+            'user_id' => Auth::id(),
+            'title' => $request->title,
+            'content' => $request->content,
+            'is_draft' => $request->is_draft ?? true,
+            'published_at' => $request->published_at,
+        ]);
+
+        return response()->json($post, 201);
     }
 }
