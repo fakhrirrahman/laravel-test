@@ -26,9 +26,9 @@ class PostPolicy
     /**
      * Determine if the given post can be viewed by the user.
      */
-    public function view(User $user, Post $post): bool
+    public function view(?User $user, Post $post): bool
     {
-        if ($user->id === $post->user_id) {
+        if ($user && $user->id === $post->user_id) {
             return true;
         }
 

@@ -84,6 +84,56 @@ class PostControllerTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_show_scheduled_post_allowed_for_owner()
+    {
+        $user = $this->authenticate();
+
+        $post = Post::factory()->create([
+            'user_id' => $user->id,
+            'is_draft' => false,
+            'published_at' => now()->addDay(),
+        ]);
+
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertOk();
+    }
+
+    public function test_show_published_post_accessible_to_everyone()
+    {
+        $author = User::factory()->create();
+
+        $post = Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => false,
+            'published_at' => now()->subDay(),
+        ]);
+
+        // Test as authenticated user
+        $this->authenticate();
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertOk();
+
+        // Test as unauthenticated user
+        $this->app['auth']->logout();
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertOk();
+    }
+
+    public function test_show_draft_post_with_null_published_at_returns_403_for_non_owner()
+    {
+        $author = User::factory()->create();
+        $viewer = $this->authenticate();
+
+        $post = Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => true,
+            'published_at' => null,
+        ]);
+
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertForbidden();
+    }
+
     public function test_update_post_by_author()
     {
         $user = $this->authenticate();
@@ -118,7 +168,7 @@ class PostControllerTest extends TestCase
         $this->assertDatabaseMissing('posts', ['id' => $post->id]);
     }
 
-    public function test_show_draft_post_returns_404_for_non_owner()
+    public function test_show_draft_post_returns_403_for_non_owner()
     {
         $author = User::factory()->create();
         $viewer = $this->authenticate();
@@ -129,10 +179,10 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
-    public function test_show_scheduled_post_returns_404_for_non_owner()
+    public function test_show_scheduled_post_returns_403_for_non_owner()
     {
         $author = User::factory()->create();
         $viewer = $this->authenticate();
@@ -144,7 +194,7 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertNotFound();
+        $response->assertForbidden();
     }
 
     public function test_update_post_requires_author()
@@ -211,5 +261,29 @@ class PostControllerTest extends TestCase
         $response = $this->get('/posts');
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_update_requires_authentication()
+    {
+        $author = User::factory()->create();
+        $post = Post::factory()->create(['user_id' => $author->id]);
+
+        $payload = [
+            'title' => 'Updated Title',
+            'content' => 'Updated Content',
+            'is_draft' => false,
+        ];
+
+        $response = $this->put("/posts/{$post->id}", $payload);
+        $response->assertRedirect();
+    }
+
+    public function test_destroy_requires_authentication()
+    {
+        $author = User::factory()->create();
+        $post = Post::factory()->create(['user_id' => $author->id]);
+
+        $response = $this->delete("/posts/{$post->id}");
+        $response->assertRedirect();
     }
 }
