@@ -22,7 +22,7 @@ class PostController extends Controller
 
     public function create()
     {
-        return response()->json('posts.create');
+        return 'posts.create';
     }
 
     public function store(PostStoreRequest $request)
@@ -40,7 +40,7 @@ class PostController extends Controller
 
     public function show(Post $post)
     {
-        if ($post->is_draft || $post->published_at > now()) {
+        if ($post->is_draft || $post->published_at === null || $post->published_at > now()) {
             if (Auth::id() !== $post->user_id) {
                 abort(404);
             }
@@ -51,7 +51,7 @@ class PostController extends Controller
 
     public function edit()
     {
-        return response()->json('posts.edit');
+        return 'posts.edit';
     }
 
     public function update(PostUpdateRequest $request, Post $post)
@@ -73,7 +73,7 @@ class PostController extends Controller
     public function destroy(Post $post)
     {
         if ($post->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            abort(403, 'Unauthorized');
         }
 
         $post->delete();

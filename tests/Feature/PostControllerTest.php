@@ -32,7 +32,7 @@ class PostControllerTest extends TestCase
             'is_draft' => true,
         ]);
 
-        $response = $this->get('/posts'); // pakai web route
+        $response = $this->get('/posts');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
@@ -43,25 +43,32 @@ class PostControllerTest extends TestCase
         $user = $this->authenticate();
 
         $payload = [
-            'title' => 'Judul Post',
-            'content' => 'Isi konten',
+            'title' => 'Test Post Title',
+            'content' => 'Test post content',
             'is_draft' => false,
-            'published_at' => now()->addDay(),
+            'published_at' => now()->format('Y-m-d H:i:s'),
         ];
 
-        $response = $this->post('/posts', $payload); // pakai route web
+        $response = $this->post('/posts', $payload);
 
-        $response->assertStatus(201); // tetap bisa JSON
+        $response->assertStatus(201);
         $this->assertDatabaseHas('posts', [
-            'title' => 'Judul Post',
+            'title' => 'Test Post Title',
+            'content' => 'Test post content',
             'user_id' => $user->id,
         ]);
     }
 
     public function test_store_requires_authentication()
     {
-        $response = $this->post('/posts', []); // route web
-        $response->assertRedirect(); // diarahkan ke login
+        $payload = [
+            'title' => 'Test Title',
+            'content' => 'Test content',
+            'is_draft' => false,
+        ];
+
+        $response = $this->post('/posts', $payload);
+        $response->assertRedirect();
     }
 
     public function test_show_draft_post_allowed_for_owner()
@@ -87,7 +94,7 @@ class PostControllerTest extends TestCase
             'title' => 'Updated Title',
             'content' => 'Updated Content',
             'is_draft' => false,
-            'published_at' => now()->addDay(),
+            'published_at' => now()->format('Y-m-d H:i:s'),
         ];
 
         $response = $this->put("/posts/{$post->id}", $payload);
@@ -109,5 +116,100 @@ class PostControllerTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseMissing('posts', ['id' => $post->id]);
+    }
+
+    public function test_show_draft_post_returns_404_for_non_owner()
+    {
+        $author = User::factory()->create();
+        $viewer = $this->authenticate();
+
+        $post = Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => true,
+        ]);
+
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertNotFound();
+    }
+
+    public function test_show_scheduled_post_returns_404_for_non_owner()
+    {
+        $author = User::factory()->create();
+        $viewer = $this->authenticate();
+
+        $post = Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => false,
+            'published_at' => now()->addDay(),
+        ]);
+
+        $response = $this->get("/posts/{$post->id}");
+        $response->assertNotFound();
+    }
+
+    public function test_update_post_requires_author()
+    {
+        $author = User::factory()->create();
+        $otherUser = $this->authenticate();
+
+        $post = Post::factory()->create(['user_id' => $author->id]);
+
+        $payload = [
+            'title' => 'Updated Title',
+            'content' => 'Updated Content',
+            'is_draft' => false,
+        ];
+
+        $response = $this->put("/posts/{$post->id}", $payload);
+        $response->assertForbidden();
+    }
+
+    public function test_destroy_post_requires_author()
+    {
+        $author = User::factory()->create();
+        $otherUser = $this->authenticate();
+
+        $post = Post::factory()->create(['user_id' => $author->id]);
+
+        $response = $this->delete("/posts/{$post->id}");
+        $response->assertForbidden();
+    }
+
+    public function test_store_validates_required_fields()
+    {
+        $this->authenticate();
+
+        $response = $this->post('/posts', []);
+        $response->assertSessionHasErrors(['title', 'content', 'is_draft']);
+    }
+
+    public function test_update_validates_required_fields()
+    {
+        $user = $this->authenticate();
+        $post = Post::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->put("/posts/{$post->id}", []);
+        $response->assertSessionHasErrors(['title', 'content', 'is_draft']);
+    }
+
+    public function test_index_excludes_null_published_at()
+    {
+        $author = User::factory()->create();
+
+        Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => false,
+            'published_at' => null,
+        ]);
+
+        Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => false,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $response = $this->get('/posts');
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
     }
 }
