@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Post\PostStoreRequest;
 use App\Http\Requests\Post\PostUpdateRequest;
 use App\Models\Post;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
+    use AuthorizesRequests;
+
     public function index()
     {
         $posts = Post::with('user')
@@ -41,9 +44,7 @@ class PostController extends Controller
     public function show(Post $post)
     {
         if ($post->is_draft || $post->published_at === null || $post->published_at > now()) {
-            if (Auth::id() !== $post->user_id) {
-                abort(404);
-            }
+            $this->authorize('view', $post);
         }
 
         return response()->json($post->load('user'));
@@ -56,9 +57,7 @@ class PostController extends Controller
 
     public function update(PostUpdateRequest $request, Post $post)
     {
-        if ($post->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('update', $post);
 
         $post->update([
             'title' => $request->title,
@@ -72,9 +71,7 @@ class PostController extends Controller
 
     public function destroy(Post $post)
     {
-        if ($post->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('delete', $post);
 
         $post->delete();
 
