@@ -19,23 +19,33 @@ class PostControllerTest extends TestCase
         return $user;
     }
 
-    public function test_index_shows_only_published_posts()
+    public function test_index_shows_only_published_posts(): void
     {
         $author = User::factory()->create();
-        Post::factory()->create([
+
+        Post::factory()->count(3)->create([
             'user_id' => $author->id,
             'is_draft' => false,
             'published_at' => now()->subDay(),
         ]);
+
         Post::factory()->create([
             'user_id' => $author->id,
             'is_draft' => true,
+            'published_at' => now()->subDay(),
         ]);
 
-        $response = $this->get('/posts');
+        Post::factory()->create([
+            'user_id' => $author->id,
+            'is_draft' => false,
+            'published_at' => now()->addDay(),
+        ]);
+
+        $response = $this->getJson('/posts');
 
         $response->assertOk();
-        $response->assertJsonCount(1, 'data');
+        $response->assertJsonCount(3, 'data');
+        $response->assertJsonFragment(['is_draft' => false]);
     }
 
     public function test_store_creates_post_successfully()
@@ -66,9 +76,12 @@ class PostControllerTest extends TestCase
             'content' => 'Test content',
             'is_draft' => false,
         ];
-
         $response = $this->post('/posts', $payload);
         $response->assertRedirect();
+        $this->assertDatabaseMissing('posts', [
+            'title' => 'Test Title',
+            'content' => 'Test content',
+        ]);
     }
 
     public function test_show_draft_post_allowed_for_owner()
@@ -119,7 +132,7 @@ class PostControllerTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_show_draft_post_with_null_published_at_returns_403_for_non_owner()
+    public function test_show_draft_post_with_null_published_at_returns_404_for_non_owner()
     {
         $author = User::factory()->create();
         $viewer = $this->authenticate();
@@ -131,7 +144,7 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 
     public function test_update_post_by_author()
@@ -149,7 +162,7 @@ class PostControllerTest extends TestCase
 
         $response = $this->put("/posts/{$post->id}", $payload);
 
-        $response->assertOk();
+        $response->assertRedirect();
         $this->assertDatabaseHas('posts', [
             'id' => $post->id,
             'title' => 'Updated Title',
@@ -179,7 +192,7 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 
     public function test_show_scheduled_post_returns_403_for_non_owner()
@@ -194,7 +207,7 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertForbidden();
+        $response->assertNotFound();
     }
 
     public function test_update_post_requires_author()

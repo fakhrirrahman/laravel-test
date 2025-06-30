@@ -6,7 +6,10 @@ use App\Http\Requests\Post\PostStoreRequest;
 use App\Http\Requests\Post\PostUpdateRequest;
 use App\Models\Post;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller
 {
@@ -14,11 +17,8 @@ class PostController extends Controller
 
     public function index()
     {
-        $posts = Post::with('user')
-            ->where('is_draft', false)
-            ->whereNotNull('published_at')
-            ->where('published_at', '<=', now())
-            ->paginate(20);
+
+        $posts = Post::with('user')->published()->paginate(20);
 
         return response()->json($posts);
     }
@@ -41,10 +41,10 @@ class PostController extends Controller
         return response()->json($post->load('user'), 201);
     }
 
-    public function show(Post $post)
+    public function show(Post $post): JsonResponse
     {
-        if ($post->is_draft || $post->published_at === null || $post->published_at > now()) {
-            $this->authorize('view', $post);
+        if (! Gate::allows('view', $post)) {
+            abort(404, 'Post not found');
         }
 
         return response()->json($post->load('user'));
@@ -55,23 +55,27 @@ class PostController extends Controller
         return 'posts.edit';
     }
 
-    public function update(PostUpdateRequest $request, Post $post)
+    public function update(PostUpdateRequest $request, Post $post): RedirectResponse
     {
-        $this->authorize('update', $post);
+        $response = Gate::inspect('update', $post);
+
+        if (! $response->allowed()) {
+            abort(403, $response->message());
+        }
 
         $post->update([
-            'title' => $request->title,
-            'content' => $request->content,
-            'is_draft' => $request->is_draft,
-            'published_at' => $request->published_at,
+            'title' => $request->validated('title'),
+            'content' => $request->validated('content'),
+            'is_draft' => $request->boolean('is_draft', true),
+            'published_at' => $request->validated('published_at'),
         ]);
 
-        return response()->json($post->load('user'));
+        return redirect()->back();
     }
 
     public function destroy(Post $post)
     {
-        $this->authorize('delete', $post);
+        Gate::authorize('delete', $post);
 
         $post->delete();
 
