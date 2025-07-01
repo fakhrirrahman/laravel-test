@@ -63,12 +63,7 @@ class PostController extends Controller
             abort(403, $response->message());
         }
 
-        $post->update([
-            'title' => $request->validated('title'),
-            'content' => $request->validated('content'),
-            'is_draft' => $request->boolean('is_draft', true),
-            'published_at' => $request->validated('published_at'),
-        ]);
+        $post->update($request->validated());
 
         return redirect()->back();
     }
