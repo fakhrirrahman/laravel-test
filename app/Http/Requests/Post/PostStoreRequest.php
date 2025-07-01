@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Post;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Auth;
 
 class PostStoreRequest extends FormRequest
 {
@@ -12,7 +11,7 @@ class PostStoreRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return Auth::check();
+        return true;
     }
 
     /**
@@ -25,7 +24,7 @@ class PostStoreRequest extends FormRequest
         return [
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'is_draft' => 'required|boolean',
+            'is_draft' => 'boolean',
             'published_at' => 'nullable|date',
         ];
     }

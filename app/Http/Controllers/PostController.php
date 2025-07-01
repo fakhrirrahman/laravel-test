@@ -28,9 +28,11 @@ class PostController extends Controller
         return 'posts.create';
     }
 
-    public function store(PostStoreRequest $request)
+    public function store(PostStoreRequest $request): RedirectResponse
     {
-        $post = Post::create([
+        Gate::authorize('create', Post::class);
+
+        Post::create([
             'user_id' => Auth::id(),
             'title' => $request->title,
             'content' => $request->content,
@@ -38,14 +40,12 @@ class PostController extends Controller
             'published_at' => $request->published_at,
         ]);
 
-        return response()->json($post->load('user'), 201);
+        return redirect('/posts');
     }
 
     public function show(Post $post): JsonResponse
     {
-        if (! Gate::allows('view', $post)) {
-            abort(404, 'Post not found');
-        }
+        Gate::authorize('view', $post);
 
         return response()->json($post->load('user'));
     }
@@ -57,15 +57,11 @@ class PostController extends Controller
 
     public function update(PostUpdateRequest $request, Post $post): RedirectResponse
     {
-        $response = Gate::inspect('update', $post);
-
-        if (! $response->allowed()) {
-            abort(403, $response->message());
-        }
+        Gate::authorize('update', $post);
 
         $post->update($request->validated());
 
-        return redirect()->back();
+        return redirect('/posts');
     }
 
     public function destroy(Post $post)

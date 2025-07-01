@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class PostControllerTest extends TestCase
@@ -61,7 +62,7 @@ class PostControllerTest extends TestCase
 
         $response = $this->post('/posts', $payload);
 
-        $response->assertStatus(201);
+        $response->assertRedirect('/posts');
         $this->assertDatabaseHas('posts', [
             'title' => 'Test Post Title',
             'content' => 'Test post content',
@@ -84,7 +85,7 @@ class PostControllerTest extends TestCase
         ]);
     }
 
-    public function test_show_draft_post_allowed_for_owner()
+    public function test_show_draft_post_returns_404_for_owner()
     {
         $user = $this->authenticate();
 
@@ -94,10 +95,10 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertOk();
+        $response->assertNotFound();
     }
 
-    public function test_show_scheduled_post_allowed_for_owner()
+    public function test_show_scheduled_post_returns_404_for_owner()
     {
         $user = $this->authenticate();
 
@@ -108,7 +109,7 @@ class PostControllerTest extends TestCase
         ]);
 
         $response = $this->get("/posts/{$post->id}");
-        $response->assertOk();
+        $response->assertNotFound();
     }
 
     public function test_show_published_post_accessible_to_everyone()
@@ -127,7 +128,7 @@ class PostControllerTest extends TestCase
         $response->assertOk();
 
         // Test as unauthenticated user
-        $this->app['auth']->logout();
+        Auth::logout();
         $response = $this->get("/posts/{$post->id}");
         $response->assertOk();
     }
@@ -243,7 +244,7 @@ class PostControllerTest extends TestCase
         $this->authenticate();
 
         $response = $this->post('/posts', []);
-        $response->assertSessionHasErrors(['title', 'content', 'is_draft']);
+        $response->assertSessionHasErrors(['title', 'content']);
     }
 
     public function test_update_validates_required_fields()

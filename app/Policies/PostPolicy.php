@@ -8,6 +8,11 @@ use Illuminate\Auth\Access\Response;
 
 class PostPolicy
 {
+    public function create(User $user): Response
+    {
+        return Response::allow();
+    }
+
     /**
      * Determine if the given post can be updated by the user.
      */
@@ -29,12 +34,14 @@ class PostPolicy
     /**
      * Determine if the given post can be viewed by the user.
      */
-    public function view(?User $user, Post $post): bool
+    public function view(?User $user, Post $post): Response
     {
-        if ($user && $user->id === $post->user_id) {
-            return true;
+        // Return 404 if the post is draft or scheduled
+        if ($post->is_draft || ! $post->published_at || $post->published_at > now()) {
+            return Response::denyWithStatus(404);
         }
 
-        return ! $post->is_draft && $post->published_at && $post->published_at <= now();
+        // Allow everyone to view published posts
+        return Response::allow();
     }
 }
